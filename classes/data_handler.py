@@ -75,6 +75,7 @@ class DataHandler(ABC):
         """
         valeur_fonciere = df['Valeur fonciere'].astype(str).str.replace(',', '.').str.replace(' ', '').astype(float)
         surface_reelle_bati = df['Surface reelle bati'].astype(str).str.replace(',', '.').str.replace(' ', '').astype(float)
+        df['Nombre pieces principales'] = df['Nombre pieces principales'].astype(str).str.replace(',', '.').str.replace(' ', '').astype(float)
 
         df['prix_m2'] = valeur_fonciere / surface_reelle_bati
 
