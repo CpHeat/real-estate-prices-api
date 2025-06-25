@@ -6,3 +6,5 @@ xgboost
 fastapi
 uvicorn
 pydantic
+pytest
+httpx

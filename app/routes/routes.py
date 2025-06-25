@@ -4,7 +4,7 @@ from app.schemas.schemas import CityInput, DynamicInput, Prediction
 router = APIRouter()
 
 
-@router.get("/predict/lille",
+@router.post("/predict/lille",
     response_model=Prediction|dict,
     response_description="A price estimation",
     tags=["predictions"])
@@ -15,7 +15,7 @@ def predict_lille(input: CityInput) -> Prediction|dict:
 
     return input.get_prediction("lille")
 
-@router.get("/predict/bordeaux",
+@router.post("/predict/bordeaux",
     response_model=Prediction|dict,
     response_description="A price estimation",
     tags=["predictions"])
@@ -26,7 +26,7 @@ def predict_bordeaux(input: CityInput) -> Prediction|dict:
 
     return input.get_prediction("bordeaux")
 
-@router.get("/predict",
+@router.post("/predict",
     response_model=Prediction|dict,
     response_description="A price estimation",
     tags=["predictions"])
