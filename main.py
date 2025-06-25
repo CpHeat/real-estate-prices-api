@@ -27,10 +27,8 @@ def extract_data(cities: list[str], types_local: list[str]) -> None:
 
             df = DataHandler.extract_data("data/ValeursFoncieres-2022.txt", filters)
             if type_local == "maison":
-                print("MAISON")
                 df = df[["Surface reelle bati", "Nombre pieces principales", "Type local", "Surface terrain", "Nombre de lots", "Valeur fonciere"]]
             else:
-                print("AUTRE")
                 df = df[["Surface reelle bati", "Nombre pieces principales", "Type local", "Nombre de lots", "Valeur fonciere"]]
             df = DataHandler.add_data(df)
             df = DataHandler.clean_data(df)
@@ -41,19 +39,20 @@ def clean_data(filepath: str):
     df = DataHandler.clean_data(df)
     DataHandler.persist_data(df, f"data/cleaned {filepath}")
 
-def train_model(cities: list[str], types_local: list[str], model_type, tested_parameters: dict = None):
+def train_model(cities: list[str], comparison_city:str, types_local: list[str], model_type, tested_parameters: dict = None):
     evaluation_results = {}
     models = {}
 
     for city in cities:
         for type_local in types_local:
             df = DataHandler.read_data(f"data/cleaned {city}_{type_local}.csv")
-            model = Model(df)
+            df_comparison = DataHandler.read_data(f"data/cleaned {comparison_city}_{type_local}.csv")
+            model = Model(df, df_comparison)
             model.clean_outliers("prix_m2")
             if type_local == "maison":
-                model.set_data(["Surface reelle bati", "Surface terrain", "Nombre pieces principales"])
+                model.set_data(["Surface reelle bati", "Surface terrain", "Nombre pieces principales", "Nombre de lots"])
             else:
-                model.set_data(["Surface reelle bati", "Nombre pieces principales"])
+                model.set_data(["Surface reelle bati", "Nombre pieces principales", "Nombre de lots"])
 
             if tested_parameters:
                 model.set_optimal_parameters(tested_parameters, model_type)
@@ -69,55 +68,71 @@ def train_model(cities: list[str], types_local: list[str], model_type, tested_pa
 
 if __name__ == "__main__":
 
-    # extract_data(["lille"], ["maison", "appartement"])
+    # extract_data(["lille", "bordeaux"], ["maison", "appartement"])
     # clean_data("lille_maison.csv")
     # clean_data("lille_appartement.csv")
+    # clean_data("bordeaux_maison.csv")
+    # clean_data("bordeaux_appartement.csv")
 
     evaluation_results = {}
     models = {}
-    # evaluation_results["linear regression"] = train_model(
-    #     ["lille"],
-    #     ["appartement", "maison"],
-    #     LinearRegression
-    # )
-    # evaluation_results['decision tree regressor'] = train_model(["lille"],
-    #     ["maison", "appartement"],
-    #     DecisionTreeRegressor)
-    # evaluation_results['random forest regressor'] = train_model(
-    #     ["lille"],
-    #     ["maison", "appartement"],
-    #     RandomForestRegressor
-    # )
-    #
-    # evaluation_results['xgboost'] = train_model(
-    #     ["Lille"],
-    #     ["maison", "appartement"],
-    #     XGBRegressor
-    # )
+
+    decision_tree_results = train_model(["lille"],
+        "bordeaux",
+        ["maison", "appartement"],
+        DecisionTreeRegressor)
+
+    evaluation_results['DecisionTree'] = decision_tree_results['results']
+    models['DecisionTree'] = decision_tree_results['models']
+
+    random_forest_results = train_model(
+        ["lille"],
+        "bordeaux",
+        ["maison", "appartement"],
+        RandomForestRegressor
+    )
+
+    evaluation_results['RandomForest'] = random_forest_results['results']
+    models['RandomForest'] = random_forest_results['models']
+
     linear_regression_results = train_model(
-        ["Lille"],
+        ["lille"],
+        "bordeaux",
         ["maison", "appartement"],
         LinearRegression
     )
 
+    evaluation_results['LinearRegression'] = linear_regression_results['results']
+    models['LinearRegression'] = linear_regression_results['models']
+
     xgboost_optimized_results = train_model(
-        ["Lille"],
+        ["lille"],
+        "bordeaux",
         ["maison", "appartement"],
         XGBRegressor,
         {
-            'n_estimators': [75, 100, 125],
-            'max_depth': [4, 5, 6],
-            'learning_rate': [0.01, 0.005, 0.02],
-            'subsample': [0.75, 0.8, 0.85],
+            'learning_rate': [0.1],
+            'gamma': [1],
+            'max_depth': [6],
+            'min_child_weight': [5],
+            'max_delta_step': [0],
+            'subsample': [0.5],
+            'sampling_method': ['uniform'],
+            'colsample_bytree': [1],
+            'colsample_bylevel': [1],
+            'colsample_bynode': [1],
+            'reg_lambda': [1],
+            'reg_alpha': [0.5],
+            'n_estimators': [10]
         }
     )
 
-    evaluation_results['xgboost optimized'] = xgboost_optimized_results['results']
-    models['xgboost optimized'] = xgboost_optimized_results['models']
-    evaluation_results['linear_regression'] = linear_regression_results['results']
-    models['linear_regression'] = xgboost_optimized_results['models']
+    evaluation_results['XgboostOptimized'] = xgboost_optimized_results['results']
+    models['XgboostOptimized'] = xgboost_optimized_results['models']
+
 
     ResultsHandler.show_metrics_comparison(evaluation_results)
+    best_models = ResultsHandler.get_best_model(evaluation_results)
 
-    models['xgboost optimized']['Lille appartement'].persist("lille_appartement")
-    models['xgboost optimized']['Lille maison'].persist("lille_appartement")
+    for best_model in best_models:
+        models[best_model['Model']][f"{best_model['City']} {best_model['Type']}"].persist(f"{best_model['Model']} {best_model['City']} {best_model['Type']}")

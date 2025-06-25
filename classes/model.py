@@ -1,3 +1,5 @@
+import os
+
 import joblib
 import numpy as np
 import pandas as pd
@@ -9,14 +11,19 @@ from xgboost import XGBRegressor
 
 class Model():
 
-    def __init__(self, df: pd.DataFrame):
+    def __init__(self, df: pd.DataFrame, df_comparison: pd.DataFrame):
         self.df = df
+        self.df_comparison = df_comparison
         self.X = None
         self.y = None
         self.X_train_scaled = None
         self.y_train_scaled = None
         self.X_test_scaled = None
         self.y_test_scaled = None
+        self.X_comparison = None
+        self.y_comparison = None
+        self.X_comparison_scaled = None
+        self.y_comparison_scaled = None
         self.scaler_X = None
         self.scaler_y = None
         self.model = None
@@ -40,7 +47,11 @@ class Model():
         self.X = self.df[fields].values
         self.y = self.df[["prix_m2"]].values
 
+        self.X_comparison = self.df_comparison[fields].values
+        self.y_comparison = self.df_comparison[["prix_m2"]].values
+
         X_train, X_test, y_train, y_test = train_test_split(self.X, self.y, test_size=0.2, random_state=42)
+
 
         self.scaler_X = scaler_X = StandardScaler()
         self.scaler_y = scaler_y = StandardScaler()
@@ -49,6 +60,9 @@ class Model():
         self.y_train_scaled = scaler_y.fit_transform(y_train)
         self.X_test_scaled = scaler_X.transform(X_test)
         self.y_test_scaled = scaler_y.transform(y_test)
+
+        self.X_comparison_scaled = scaler_X.transform(self.X_comparison)
+        self.y_comparison_scaled = scaler_y.transform(self.y_comparison)
 
     def train_model(self, model_type):
         if self.parameters:
@@ -64,6 +78,9 @@ class Model():
         y_test_pred_scaled = self.model.predict(self.X_test_scaled)
         mse_test = mean_squared_error(self.y_test_scaled, y_test_pred_scaled)
 
+        y_comparison_pred_scaled = self.model.predict(self.X_comparison_scaled)
+        mse_comparison = mean_squared_error(self.y_comparison_scaled, y_comparison_pred_scaled)
+
         return {
             "train results": {
                 "MSE": mse_train,
@@ -76,7 +93,13 @@ class Model():
                 "RMSE": np.sqrt(mse_test),
                 "MAE": mean_absolute_error(self.y_test_scaled, y_test_pred_scaled),
                 "R²": r2_score(self.y_test_scaled, y_test_pred_scaled)
-            }
+            },
+            "comparison results": {
+                "MSE": mse_comparison,
+                "RMSE": np.sqrt(mse_comparison),
+                "MAE": mean_absolute_error(self.y_comparison_scaled, y_comparison_pred_scaled),
+                "R²": r2_score(self.y_comparison_scaled, y_comparison_pred_scaled)
+            },
         }
 
     def set_optimal_parameters(self, param_grid: dict, model_type) -> None:
@@ -95,8 +118,9 @@ class Model():
 
     def persist(self, filepath):
 
-        joblib.dump(self.model, f"models/{filepath}.pkl")
-        joblib.dump(self.scaler_X, f"models/{filepath} scaler_X.pkl")
-        joblib.dump(self.scaler_y, f"models/{filepath} scaler_y.pkl")
+        os.makedirs("app/models", exist_ok=True)
+        joblib.dump(self.model, f"app/models/{filepath} model.pkl")
+        joblib.dump(self.scaler_X, f"app/models/{filepath} scaler_X.pkl")
+        joblib.dump(self.scaler_y, f"app/models/{filepath} scaler_y.pkl")
 
         print("Model persisted")
