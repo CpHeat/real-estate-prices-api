@@ -117,6 +117,7 @@ if __name__ == "__main__":
     evaluation_results['linear_regression'] = linear_regression_results['results']
     models['linear_regression'] = xgboost_optimized_results['models']
 
-    print(models)
-
     ResultsHandler.show_metrics_comparison(evaluation_results)
+
+    models['xgboost optimized']['Lille appartement'].persist("lille_appartement")
+    models['xgboost optimized']['Lille maison'].persist("lille_appartement")

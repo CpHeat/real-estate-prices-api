@@ -98,3 +98,5 @@ class Model():
         joblib.dump(self.model, f"models/{filepath}.pkl")
         joblib.dump(self.scaler_X, f"models/{filepath} scaler_X.pkl")
         joblib.dump(self.scaler_y, f"models/{filepath} scaler_y.pkl")
+
+        print("Model persisted")
