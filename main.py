@@ -22,14 +22,14 @@ def extract_data(cities: list[str], types_local: list[str]) -> None:
                 Filter('Nature mutation', '==', 'vente'),
                 Filter('Valeur fonciere', 'notnull', None),
                 Filter('Surface reelle bati', 'notnull', None),
-                Filter('Nombre pieces principales', '==', 4),
+                # Filter('Nombre pieces principales', '==', 4),
             ]
 
             df = DataHandler.extract_data("data/ValeursFoncieres-2022.txt", filters)
             if type_local == "maison":
-                df = df[["Surface reelle bati", "Nombre pieces principales", "Type local", "Surface terrain", "Nombre de lots", "Valeur fonciere"]]
+                df = df[["Surface reelle bati", "Nombre pieces principales", "Type local", "Surface terrain", "Nombre de lots", "Valeur fonciere", "No voie", "Type de voie", "Voie", "Code postal", "Commune"]]
             else:
-                df = df[["Surface reelle bati", "Nombre pieces principales", "Type local", "Nombre de lots", "Valeur fonciere"]]
+                df = df[["Surface reelle bati", "Nombre pieces principales", "Type local", "Nombre de lots", "Valeur fonciere", "No voie", "Type de voie", "Voie", "Code postal", "Commune"]]
             df = DataHandler.add_data(df)
             df = DataHandler.clean_data(df)
             DataHandler.persist_data(df, f"data/{city}_{type_local}.csv")
@@ -68,11 +68,11 @@ def train_model(cities: list[str], comparison_city:str, types_local: list[str], 
 
 if __name__ == "__main__":
 
-    # extract_data(["lille", "bordeaux"], ["maison", "appartement"])
-    # clean_data("lille_maison.csv")
-    # clean_data("lille_appartement.csv")
-    # clean_data("bordeaux_maison.csv")
-    # clean_data("bordeaux_appartement.csv")
+    extract_data(["lille", "bordeaux"], ["appartement", "maison"])
+    clean_data("lille_maison.csv")
+    clean_data("lille_appartement.csv")
+    clean_data("bordeaux_maison.csv")
+    clean_data("bordeaux_appartement.csv")
 
     evaluation_results = {}
     models = {}

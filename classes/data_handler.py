@@ -1,8 +1,12 @@
 import operator
 from abc import ABC
 import os
+from functools import partial
+from time import sleep
 
 import pandas as pd
+from geopy import Nominatim
+
 
 class Filter():
     def __init__(self, field, comparator, value):
@@ -77,9 +81,40 @@ class DataHandler(ABC):
         surface_reelle_bati = df['Surface reelle bati'].astype(str).str.replace(',', '.').str.replace(' ', '').astype(float)
         df['Nombre pieces principales'] = df['Nombre pieces principales'].astype(str).str.replace(',', '.').str.replace(' ', '').astype(float)
 
+        print("Data converted")
+
         df['prix_m2'] = valeur_fonciere / surface_reelle_bati
 
-        print("Data converted")
+        print("Dataset upgraded!")
+        return df
+
+    @classmethod
+    def add_geolocalization(cls, df: pd.DataFrame) -> pd.DataFrame:
+        geolocator = Nominatim(user_agent="geo_immobilier")
+
+        df['adress'] = (
+                df['No voie'].fillna(0).astype(int).astype(str).fillna('') + ' ' +
+                df['Type de voie'].fillna('RUE') + ' ' +
+                df['Voie'] + ', ' +
+                df['Code postal'].astype(int).astype(str) + ' ' +
+                df['Commune']
+        )
+
+        def geocode_address(address):
+            try:
+                location = geolocator.geocode(address)
+                if location:
+                    print(location.address)
+                    print((location.latitude, location.longitude))
+                    return pd.Series([location.latitude, location.longitude])
+            except Exception as e:
+                print(f"Error for {address}: {e}")
+            sleep(1)
+            return pd.Series([None, None])
+
+        df[['latitude', 'longitude']] = df['adress'].apply(geocode_address)
+
+        print("Geolocalization added!")
         return df
 
     @classmethod
