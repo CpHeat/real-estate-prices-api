@@ -1,0 +1,12 @@
+pandas
+matplotlib
+seaborn
+scikit-learn
+xgboost
+fastapi
+uvicorn
+pydantic
+pytest
+pytest-asyncio
+httpx
+geopy
