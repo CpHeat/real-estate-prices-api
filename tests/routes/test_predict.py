@@ -1,9 +1,14 @@
+import pytest
 from fastapi.testclient import TestClient
+from httpx import AsyncClient, ASGITransport
+
 from app.main import app
 
 client = TestClient(app)
 
-def test_predict_success():
+
+@pytest.mark.asyncio
+async def test_predict_success():
 
     data = {
         "ville": "Lille",
@@ -16,13 +21,16 @@ def test_predict_success():
         }
     }
 
-    resp = client.post("/predict", json=data)
-    assert resp.status_code == 200
-    assert isinstance(resp.json()['prix_m2_estime'], str)
-    assert resp.json()['ville_modele'] == "Lille"
-    assert isinstance(resp.json()['model'], str)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post("/predict", json=data)
+        assert resp.status_code == 200
+        assert isinstance(resp.json()['prix_m2_estime'], float)
+        assert resp.json()['ville_modele'] == "Lille"
+        assert isinstance(resp.json()['model'], str)
 
-def test_predict_failure():
+@pytest.mark.asyncio
+async def test_predict_failure():
 
     data = {
         "ville": "Lyon",
@@ -35,8 +43,10 @@ def test_predict_failure():
         }
     }
 
-    resp = client.post("/predict", json=data)
-    assert resp.status_code == 404
-    assert resp.json() == {
-        "detail": "City not supported"
-    }
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post("/predict", json=data)
+        assert resp.status_code == 404
+        assert resp.json() == {
+            "detail": "City not supported"
+        }

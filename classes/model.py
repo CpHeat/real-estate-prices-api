@@ -11,7 +11,7 @@ from xgboost import XGBRegressor
 
 class Model():
 
-    def __init__(self, df: pd.DataFrame, df_comparison: pd.DataFrame):
+    def __init__(self, df: pd.DataFrame, df_comparison: pd.DataFrame|None = None):
         self.df = df
         self.df_comparison = df_comparison
         self.X = None
@@ -47,11 +47,11 @@ class Model():
         self.X = self.df[fields].values
         self.y = self.df[["prix_m2"]].values
 
-        self.X_comparison = self.df_comparison[fields].values
-        self.y_comparison = self.df_comparison[["prix_m2"]].values
+        if self.df_comparison is not None:
+            self.X_comparison = self.df_comparison[fields].values
+            self.y_comparison = self.df_comparison[["prix_m2"]].values
 
         X_train, X_test, y_train, y_test = train_test_split(self.X, self.y, test_size=0.2, random_state=42)
-
 
         self.scaler_X = scaler_X = StandardScaler()
         self.scaler_y = scaler_y = StandardScaler()
@@ -61,8 +61,9 @@ class Model():
         self.X_test_scaled = scaler_X.transform(X_test)
         self.y_test_scaled = scaler_y.transform(y_test)
 
-        self.X_comparison_scaled = scaler_X.transform(self.X_comparison)
-        self.y_comparison_scaled = scaler_y.transform(self.y_comparison)
+        if self.df_comparison is not None:
+            self.X_comparison_scaled = scaler_X.transform(self.X_comparison)
+            self.y_comparison_scaled = scaler_y.transform(self.y_comparison)
 
     def train_model(self, model_type):
         if self.parameters:
@@ -78,10 +79,11 @@ class Model():
         y_test_pred_scaled = self.model.predict(self.X_test_scaled)
         mse_test = mean_squared_error(self.y_test_scaled, y_test_pred_scaled)
 
-        y_comparison_pred_scaled = self.model.predict(self.X_comparison_scaled)
-        mse_comparison = mean_squared_error(self.y_comparison_scaled, y_comparison_pred_scaled)
+        if self.df_comparison is not None:
+            y_comparison_pred_scaled = self.model.predict(self.X_comparison_scaled)
+            mse_comparison = mean_squared_error(self.y_comparison_scaled, y_comparison_pred_scaled)
 
-        return {
+        results = {
             "train results": {
                 "MSE": mse_train,
                 "RMSE": np.sqrt(mse_train),
@@ -93,24 +95,39 @@ class Model():
                 "RMSE": np.sqrt(mse_test),
                 "MAE": mean_absolute_error(self.y_test_scaled, y_test_pred_scaled),
                 "R²": r2_score(self.y_test_scaled, y_test_pred_scaled)
-            },
-            "comparison results": {
+            }
+        }
+
+        if self.df_comparison is not None:
+            results["comparison results"] = {
                 "MSE": mse_comparison,
                 "RMSE": np.sqrt(mse_comparison),
                 "MAE": mean_absolute_error(self.y_comparison_scaled, y_comparison_pred_scaled),
                 "R²": r2_score(self.y_comparison_scaled, y_comparison_pred_scaled)
-            },
-        }
+            }
+
+        return results
 
     def set_optimal_parameters(self, param_grid: dict, model_type) -> None:
 
-        grid_search = GridSearchCV(model_type(
-            objective="reg:squarederror"),
-            param_grid,
-            cv=5,
-            scoring='neg_mean_squared_error',
-            verbose=1
-        )
+        if model_type is XGBRegressor:
+            grid_search = GridSearchCV(
+                model_type(
+                    objective="reg:squarederror"
+                ),
+                param_grid,
+                cv=5,
+                scoring='neg_mean_squared_error',
+                verbose=1
+            )
+        else:
+            grid_search = GridSearchCV(
+                model_type(),
+                param_grid,
+                cv=5,
+                scoring='neg_mean_squared_error',
+                verbose=1
+            )
         grid_search.fit(self.X_train_scaled, self.y_train_scaled.ravel())
 
         print("Best parameters:", grid_search.best_params_)

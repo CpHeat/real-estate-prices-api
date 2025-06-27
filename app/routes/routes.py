@@ -3,37 +3,79 @@ from app.schemas.schemas import CityInput, DynamicInput, Prediction
 
 router = APIRouter()
 
-
 @router.post("/predict/lille",
     response_model=Prediction|dict,
     response_description="A price estimation",
     tags=["predictions"])
-def predict_lille(input: CityInput) -> Prediction|dict:
+async def predict_lille(user_input: CityInput) -> Prediction|dict:
+    """
+    Returns a price prediction for a real estate asset in Lille.
 
-    if input.type_local.lower() not in ["apartment", "house"]:
+    Request body:
+    - **surface_bati** (int): Built surface area in square meters.
+    - **nombre_pieces** (int): Number of rooms.
+    - **type_local** ("house" | "apartment"): Type of property.
+    - **surface_terrain** (int, optional): Land surface area. Required if type_local is "house".
+    - **nombre_lots** (int): Number of lots.
+
+    Response body:
+    - **prix_m2_estime** (float): Estimated price per square meter, in euros.
+    - **ville_modele** (str): The city used by the prediction model.
+    - **model** (str): The name of the model used for prediction.
+    """
+    if user_input.type_local.lower() not in ["apartment", "house"]:
         return {"error": "wrong local type"}
 
-    return input.get_prediction("lille")
+    return await user_input.get_prediction("lille")
 
 @router.post("/predict/bordeaux",
     response_model=Prediction|dict,
     response_description="A price estimation",
     tags=["predictions"])
-def predict_bordeaux(input: CityInput) -> Prediction|dict:
+async def predict_bordeaux(user_input: CityInput) -> Prediction|dict:
+    """
+    Returns a price prediction for a real estate asset in Bordeaux.
 
-    if input.type_local.lower() not in ["apartment", "house"]:
+    Request body:
+    - **surface_bati** (int): Built surface area in square meters.
+    - **nombre_pieces** (int): Number of rooms.
+    - **type_local** ("house" | "apartment"): Type of property.
+    - **surface_terrain** (int, optional): Land surface area. Required if type_local is "house".
+    - **nombre_lots** (int): Number of lots.
+
+    Response body:
+    - **prix_m2_estime** (float): Estimated price per square meter, in euros.
+    - **ville_modele** (str): The city used by the prediction model.
+    - **model** (str): The name of the model used for prediction.
+    """
+    if user_input.type_local.lower() not in ["apartment", "house"]:
         return {"error": "wrong local type"}
 
-    return input.get_prediction("bordeaux")
+    return await user_input.get_prediction("bordeaux")
 
 @router.post("/predict",
     response_model=Prediction|dict,
     response_description="A price estimation",
     tags=["predictions"])
-def predict(input: DynamicInput) -> Prediction|dict:
+async def predict(user_input: DynamicInput) -> Prediction|dict:
+    """
+    Returns a price prediction for a real estate asset.
 
-    print(input.ville.lower())
-    if input.ville.lower() not in ["lille", "bordeaux"]:
+    Request body:
+    - **ville** (str): Name of the city.
+    - **features** (object): Property details including:
+        - **surface_bati** (int): Built surface area in square meters.
+        - **nombre_pieces** (int): Number of rooms.
+        - **type_local** ("house" | "apartment"): Type of property.
+        - **surface_terrain** (int, optional): Land surface area. Required if type_local is "house".
+        - **nombre_lots** (int): Number of lots.
+
+    Response body:
+    - **prix_m2_estime** (float): Estimated price per square meter, in euros.
+    - **ville_modele** (str): The city used by the prediction model.
+    - **model** (str): The name of the model used for prediction.
+    """
+    if user_input.ville.lower() not in ["lille", "bordeaux"]:
         raise HTTPException(status_code=404, detail="City not supported")
 
-    return input.features.get_prediction(input.ville)
+    return await user_input.features.get_prediction(user_input.ville)
