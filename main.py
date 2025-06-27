@@ -9,6 +9,7 @@ from xgboost import XGBRegressor
 from classes.data_handler import DataHandler, Filter
 from classes.model import Model
 from classes.results_handler import ResultsHandler
+from classes.project_settings import ProjectSettings
 
 pd.set_option('display.max_columns', None)
 
@@ -27,10 +28,19 @@ def extract_data(cities: list[str], types_local: list[str]) -> None:
 
             df = DataHandler.extract_data("data/ValeursFoncieres-2022.txt", filters)
             if type_local == "maison":
-                df = df[["Surface reelle bati", "Nombre pieces principales", "Type local", "Surface terrain", "Nombre de lots", "Valeur fonciere"]]
+                if project_settings.geolocalize:
+                    df = df[["Surface reelle bati", "Nombre pieces principales", "Type local", "Surface terrain", "Nombre de lots", "Valeur fonciere", "No voie", "Type de voie", "Voie", "Code postal", "Commune"]]
+                else:
+                    df = df[["Surface reelle bati", "Nombre pieces principales", "Type local", "Surface terrain", "Nombre de lots", "Valeur fonciere"]]
             else:
-                df = df[["Surface reelle bati", "Nombre pieces principales", "Type local", "Nombre de lots", "Valeur fonciere"]]
+                if project_settings.geolocalize:
+                    df = df[["Surface reelle bati", "Nombre pieces principales", "Type local", "Nombre de lots", "Valeur fonciere", "No voie", "Type de voie", "Voie", "Code postal", "Commune"]]
+                else:
+                    df = df[["Surface reelle bati", "Nombre pieces principales", "Type local", "Nombre de lots", "Valeur fonciere"]]
+
             df = DataHandler.add_data(df)
+            if project_settings.geolocalize:
+                df = DataHandler.add_geolocalization(df)
             df = DataHandler.clean_data(df)
             DataHandler.persist_data(df, f"data/{city}_{type_local}.csv")
 
@@ -39,15 +49,20 @@ def clean_data(filepath: str):
     df = DataHandler.clean_data(df)
     DataHandler.persist_data(df, f"data/cleaned {filepath}")
 
-def train_model(cities: list[str], comparison_city:str, types_local: list[str], model_type, tested_parameters: dict = None):
+def train_model(cities: list[str], types_local: list[str], model_type, tested_parameters: dict = None, comparison_city:str = None):
     evaluation_results = {}
     models = {}
 
     for city in cities:
         for type_local in types_local:
             df = DataHandler.read_data(f"data/cleaned {city}_{type_local}.csv")
-            df_comparison = DataHandler.read_data(f"data/cleaned {comparison_city}_{type_local}.csv")
-            model = Model(df, df_comparison)
+
+            if comparison_city:
+                df_comparison = DataHandler.read_data(f"data/cleaned {comparison_city}_{type_local}.csv")
+                model = Model(df, df_comparison)
+            else:
+                model = Model(df)
+
             model.clean_outliers("prix_m2")
             if type_local == "maison":
                 model.set_data(["Surface reelle bati", "Surface terrain", "Nombre pieces principales", "Nombre de lots"])
@@ -68,7 +83,9 @@ def train_model(cities: list[str], comparison_city:str, types_local: list[str], 
 
 if __name__ == "__main__":
 
-    # extract_data(["lille", "bordeaux"], ["maison", "appartement"])
+    project_settings = ProjectSettings()
+
+    # extract_data(["lille", "bordeaux"], ["appartement", "maison"])
     # clean_data("lille_maison.csv")
     # clean_data("lille_appartement.csv")
     # clean_data("bordeaux_maison.csv")
@@ -77,59 +94,48 @@ if __name__ == "__main__":
     evaluation_results = {}
     models = {}
 
-    decision_tree_results = train_model(["lille"],
-        "bordeaux",
-        ["maison", "appartement"],
-        DecisionTreeRegressor)
-
-    evaluation_results['DecisionTree'] = decision_tree_results['results']
-    models['DecisionTree'] = decision_tree_results['models']
-
-    random_forest_results = train_model(
-        ["lille"],
-        "bordeaux",
-        ["maison", "appartement"],
-        RandomForestRegressor
-    )
-
-    evaluation_results['RandomForest'] = random_forest_results['results']
-    models['RandomForest'] = random_forest_results['models']
-
-    linear_regression_results = train_model(
-        ["lille"],
-        "bordeaux",
-        ["maison", "appartement"],
-        LinearRegression
-    )
-
-    evaluation_results['LinearRegression'] = linear_regression_results['results']
-    models['LinearRegression'] = linear_regression_results['models']
-
     xgboost_optimized_results = train_model(
         ["lille"],
-        "bordeaux",
-        ["maison", "appartement"],
+        ["maison"],
         XGBRegressor,
         {
             'learning_rate': [0.1],
             'gamma': [1],
-            'max_depth': [6],
+            'max_depth': [7],
             'min_child_weight': [5],
-            'max_delta_step': [0],
+            'max_delta_step': [1],
             'subsample': [0.5],
             'sampling_method': ['uniform'],
             'colsample_bytree': [1],
             'colsample_bylevel': [1],
             'colsample_bynode': [1],
             'reg_lambda': [1],
-            'reg_alpha': [0.5],
+            'reg_alpha': [1],
             'n_estimators': [10]
-        }
+        },
+        comparison_city="bordeaux"
     )
 
-    evaluation_results['XgboostOptimized'] = xgboost_optimized_results['results']
-    models['XgboostOptimized'] = xgboost_optimized_results['models']
+    evaluation_results['XGBoostOptimized'] = xgboost_optimized_results['results']
+    models['XGBoostOptimized'] = xgboost_optimized_results['models']
 
+    random_forest_optimized_results = train_model(
+        ["lille"],
+        ["appartement"],
+        RandomForestRegressor,
+        {
+            "n_estimators": [100],
+            "max_depth": [1],
+            "min_samples_split": [2],
+            "min_samples_leaf": [2],
+            "min_weight_fraction_leaf": [0],
+            "max_features": [1.0]
+        },
+        comparison_city="bordeaux"
+    )
+
+    evaluation_results['RandomForestOptimized'] = random_forest_optimized_results['results']
+    models['RandomForestOptimized'] = random_forest_optimized_results['models']
 
     ResultsHandler.show_metrics_comparison(evaluation_results)
     best_models = ResultsHandler.get_best_model(evaluation_results)

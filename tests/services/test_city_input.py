@@ -1,3 +1,5 @@
+import pytest
+
 from app.schemas.schemas import CityInput, Prediction
 
 city_input = CityInput(
@@ -10,9 +12,10 @@ city_input = CityInput(
 
 class TestCityInput:
 
-    def test_get_prediction(self):
-        result = city_input.get_prediction("lille")
+    @pytest.mark.asyncio
+    async def test_get_prediction(self):
+        result = await city_input.get_prediction("lille")
         assert isinstance(result, Prediction)
-        assert isinstance(result.prix_m2_estime, str)
+        assert isinstance(result.prix_m2_estime, float)
         assert result.ville_modele.lower() == "lille"
         assert isinstance(result.model, str)

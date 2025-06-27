@@ -1,9 +1,13 @@
+import pytest
 from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
+
 from app.main import app
 
 client = TestClient(app)
 
-def test_predict_lille():
+@pytest.mark.asyncio
+async def test_predict_lille_success():
 
     data = {
         "surface_bati": 12,
@@ -13,13 +17,16 @@ def test_predict_lille():
         "nombre_lots": 5
     }
 
-    resp = client.post("/predict/lille", json=data)
-    assert resp.status_code == 200
-    assert isinstance(resp.json()['prix_m2_estime'], str)
-    assert resp.json()['ville_modele'] == "Lille"
-    assert isinstance(resp.json()['model'], str)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post("/predict/lille", json=data)
+        assert resp.status_code == 200
+        assert isinstance(resp.json()['prix_m2_estime'], float)
+        assert resp.json()['ville_modele'] == "Lille"
+        assert isinstance(resp.json()['model'], str)
 
-def test_predict_lille_wrong_type():
+@pytest.mark.asyncio
+async def test_predict_lille_wrong_type():
 
     data = {
         "surface_bati": 12,
@@ -29,13 +36,15 @@ def test_predict_lille_wrong_type():
         "nombre_lots": 5
     }
 
-    resp = client.post("/predict/lille", json=data)
-    assert resp.status_code == 422
-    assert resp.json() == {
-    "erreurs": [
-        {
-            "champ": "type_local",
-            "message": "Input should be 'house' or 'apartment'"
-        }
-    ]
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post("/predict/lille", json=data)
+        assert resp.status_code == 422
+        assert resp.json() == {
+        "erreurs": [
+            {
+                "champ": "type_local",
+                "message": "Input should be 'house' or 'apartment'"
+            }
+        ]
 }
